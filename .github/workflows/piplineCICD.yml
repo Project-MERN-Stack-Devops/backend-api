@@ -52,7 +52,7 @@ jobs:
           run: docker images  
           
         - name: push docker image
-          run: docker push adeem07/backend-api-session14:${{ github.run_number }}
+          run: docker push adeem07/api-session14:${{ github.run_number }}
 
 
   #deploy to vps
