@@ -5,6 +5,12 @@ on :
         branches :
             [main,master,dev]
 
+env :
+    BUILD_NUMBER: ${{ github.run_number }}
+    IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/backend-api
+    PROJECT_PATH: /home/user/devops-script/backend/dev
+    DOCKER_SERVICE: backend-api
+    
 
 jobs:
   #unit test 
@@ -60,7 +66,14 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.user }} 
           password: ${{ secrets.PASSWORD }}
-          port: ${{ secrets.PORT }}                     # default port 22  
-          script: whoami                              #use file or commande to execute
+          port: ${{ secrets.PORT }}   # default port 22  
+          #dockerc ompose up -d --build                  
+          script: |
+            cd  ${{ env.PROJECT_PATH }}
+            sudo docker compose pull ${{ env.DOCKER_SERVICE }}
+            sudo docker compose down ${{ env.DOCKER_SERVICE }}
+            sudo docker compose up -d 
+          
 
-        #dockerc ompose up -d --build
+                                     
+

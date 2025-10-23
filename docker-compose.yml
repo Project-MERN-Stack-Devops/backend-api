@@ -1,38 +1,37 @@
-
-services:
-  backend-api:
+services: # Define the services of the docker-compose file
+  backend-api: # Name of the service backend-api
     image: adeem07/api-session14
     build: . # Build the image from the current directory (Dockerfile)
     container_name: api-container # Name of the container
-    ports:
+    ports: # Map the port 3001 on the host to port 3001 in the container
       - "3000:3001"
-    env_file:
+    env_file: # Load the environment variables from the .env file
       - .env # Assurez-vous que ce fichier contient MONGO_URI
-    depends_on:
-      - mongo
+    depends_on: # Define the dependencies of the service
+      - mongo # The mongo service must be started before the backend-api service
 
 
-  mongo:
-    image: mongo
-    restart: always
-    container_name: mongo-container
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: mongodb
-      MONGO_INITDB_ROOT_PASSWORD: mongo123
+  mongo: # Name of the service mongo
+    image: mongo # Use the mongo image
+    restart: always # Restart the container if it crashes
+    container_name: mongo-container # Name of the container
+    environment: # Set the environment variables
+      MONGO_INITDB_ROOT_USERNAME: mongodb # The root username for the mongo database
+      MONGO_INITDB_ROOT_PASSWORD: mongo123 # The root password for the mongo database
 
 
-  mongo-express:
-    image: mongo-express
-    restart: always
-    ports:
+  mongo-express: # Name of the service mongo-express
+    image: mongo-express # Use the mongo-express image  
+    restart: always # Restart the container if it crashes
+    ports: # Map the port 8081 on the host to port 8081 in the container
       - 8081:8081
-    environment:
+    environment: # Set the environment variables
       ME_CONFIG_MONGODB_URL: mongodb://mongodb:mongo123@mongo:27017/ # Correct variable name
-      ME_CONFIG_BASICAUTH_ENABLED: true
-      ME_CONFIG_BASICAUTH_USERNAME: ademm
-      ME_CONFIG_BASICAUTH_PASSWORD: ademm123
-    depends_on:
-      - mongo
+      ME_CONFIG_BASICAUTH_ENABLED: true # Enable basic authentication for mongo-express
+      ME_CONFIG_BASICAUTH_USERNAME: ademm # The username for mongo-express
+      ME_CONFIG_BASICAUTH_PASSWORD: ademm123 # The password for mongo-express
+    depends_on: # Define the dependencies of the service
+      - mongo # The mongo service must be started before the mongo-express service
 
 
 
