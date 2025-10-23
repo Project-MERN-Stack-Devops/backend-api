@@ -58,8 +58,9 @@ jobs:
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.HOST }}
-          username: linuxserver.io
+          username: ${{ secrets.user }} 
           password: ${{ secrets.PASSWORD }}
-          port: ${{ secrets.PORT }}
-          script: whoami
+          port: ${{ secrets.PORT }}                     # default port 22  
+          script: whoami                              #use file or commande to execute
+
         #dockerc ompose up -d --build
