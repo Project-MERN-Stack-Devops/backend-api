@@ -38,7 +38,7 @@ jobs:
         - name: clone code 
           uses: actions/checkout@v5
         - name: build docker image
-          run: docker build -t adeem07/backend-api-session14 .
+          run: docker build -t adeem07/api-session14 .
 
         # docker tag image
         - name: tag image 
