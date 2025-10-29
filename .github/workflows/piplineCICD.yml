@@ -7,7 +7,7 @@ on :
 
 env :
     BUILD_NUMBER: ${{ github.run_number }}
-    IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/backend-api
+    IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/api-session14
     PROJECT_PATH: /home/user/devops-script/backend/dev
     DOCKER_SERVICE: backend-api
     
