@@ -16,8 +16,8 @@ services: # Define the services of the docker-compose file
     restart: always # Restart the container if it crashes
     container_name: mongo-container # Name of the container
     environment: # Set the environment variables
-      MONGO_INITDB_ROOT_USERNAME: mongodb # The root username for the mongo database
-      MONGO_INITDB_ROOT_PASSWORD: mongo123 # The root password for the mongo database
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER} # The root username for the mongo database
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD} # The root password for the mongo database
 
 
   mongo-express: # Name of the service mongo-express
@@ -26,10 +26,10 @@ services: # Define the services of the docker-compose file
     ports: # Map the port 8081 on the host to port 8081 in the container
       - 8081:8081
     environment: # Set the environment variables
-      ME_CONFIG_MONGODB_URL: mongodb://mongodb:mongo123@mongo:27017/ # Correct variable name
+      ME_CONFIG_MONGODB_URL: ${MONGO_EXPRESS_URL} # Correct variable name
       ME_CONFIG_BASICAUTH_ENABLED: true # Enable basic authentication for mongo-express
-      ME_CONFIG_BASICAUTH_USERNAME: ademm # The username for mongo-express
-      ME_CONFIG_BASICAUTH_PASSWORD: ademm123 # The password for mongo-express
+      ME_CONFIG_BASICAUTH_USERNAME: ${ME_AUTH_USERNAME} # The username for mongo-express
+      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_AUTH_PASSWORD} # The password for mongo-express
     depends_on: # Define the dependencies of the service
       - mongo # The mongo service must be started before the mongo-express service
 
