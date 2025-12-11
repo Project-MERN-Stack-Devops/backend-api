@@ -71,7 +71,7 @@ jobs:
         run: |
           docker build -t ${{ env.IMAGE_NAME }} .
           trivy image ${{ env.IMAGE_NAME }}
-                 
+                  
 
   #checkout code | clone car chaque job est separer et dans un runners specifique       
   #build and push image 
