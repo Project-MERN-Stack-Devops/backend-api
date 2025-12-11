@@ -71,6 +71,10 @@ jobs:
         run: |
           docker build -t ${{ env.IMAGE_NAME }} .
           trivy image ${{ env.IMAGE_NAME }}
+      - name: Run Trivy filesystem vulnerability scan
+        run: trivy fs .
+
+        
                   
 
   #checkout code | clone car chaque job est separer et dans un runners specifique       
