@@ -94,7 +94,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
   
-                  
+                   
 
   #checkout code | clone car chaque job est separer et dans un runners specifique       
   #build and push image 
