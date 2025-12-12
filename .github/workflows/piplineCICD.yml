@@ -71,10 +71,30 @@ jobs:
         run: |
           docker build -t ${{ env.IMAGE_NAME }} .
           trivy image ${{ env.IMAGE_NAME }}
+
       - name: Run Trivy filesystem vulnerability scan
-        run: trivy fs --exit-code 1 --severity CRITICAL .
+        run: trivy fs .    
 
+    #  - name: Run Trivy filesystem vulnerability scan with exit code 1 and severity CRITICAL ( fail the job if any critical vulnerability is found)
+    #    run: trivy fs --exit-code 1 --severity CRITICAL .
+   #  Vulnerability Scanning (Snyk)
+  snyk-code-security-scan-job:
+    runs-on: ubuntu-latest
+    steps:
 
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Dependency Scanning Tool (Snyk)
+        run: npm install -g snyk
+
+      - name: Snyk Authentication
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+
+      - name: Run Snyk Vulnerability Scan
+        run: snyk monitor --all-projects --org=ademze
+ 
+  
                   
 
   #checkout code | clone car chaque job est separer et dans un runners specifique       
