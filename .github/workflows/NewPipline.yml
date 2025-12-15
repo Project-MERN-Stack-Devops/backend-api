@@ -1,0 +1,341 @@
+name: Pipeline CI/CD backend-api
+
+on:
+    push:
+        branches:
+            [main,master,dev]
+
+env:
+    BUILD_NUMBER: ${{ github.run_number }}
+    IMAGE_NAME: adeem07/api-session14
+    PROJECT_PATH: /home/user/devops-script/backend/dev
+    DOCKER_SERVICE: backend-api
+    
+
+jobs:
+  #unit test 
+  Test_Unitaire:
+    runs-on: ubuntu-latest 
+    steps:
+      - name: Notification Slack - Début du job
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🔵 *Début des tests unitaires* - ${{ github.repository }}\n*Commit:* ${{ github.sha }}\n*Branche:* ${{ github.ref_name }}\n*Auteur:* ${{ github.actor }}\n*Lien:* ${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+                    
+      - name: clone code 
+        uses: actions/checkout@v5
+
+      - name: install dependencies
+        run: npm install
+
+      - name: run unit tests
+        run: npm run test
+
+      - name: Notification Slack - Fin du job
+        if: always()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: |
+              ${{ job.status == 'success' && '✅ *Tests unitaires réussis*' || '❌ *Tests unitaires échoués*' }} - ${{ github.repository }}
+              *Statut:* ${{ job.status }}
+              *Durée:* ${{ job.steps.duration }}
+              *Commit:* ${{ github.sha }}
+              ${{ job.status == 'failure' && '*Détails:* Vérifiez les logs du job' || '' }}
+
+
+  #sonarqube code quality scan
+  sonarqube-code-quality-scan-job:
+    needs: Test_Unitaire
+    runs-on: ubuntu-latest
+    
+    steps :    
+      - name: Notification Slack - Début du job
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🔵 *Début analyse SonarQube* - ${{ github.repository }}\n*Dépend de:* Test_Unitaire ✅\n*Commit:* ${{ github.sha }}"
+
+      - name: Clone Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      
+      - name: Notification Slack - Fin du job
+        if: always()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: |
+              ${{ job.status == 'success' && '✅ *Analyse SonarQube terminée*' || '❌ *Analyse SonarQube échouée*' }}
+              *Statut:* ${{ job.status }}
+              *Projet:* backend-api
+              *Lien SonarQube:* ${{ secrets.SONAR_HOST_URL }}/dashboard?id=${{ github.repository }}
+
+
+  trivy-image-security-scan-job:
+    runs-on: ubuntu-latest
+    needs: [Test_Unitaire]
+    
+    steps:      
+      - name: Notification Slack - Début du job
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🔵 *Début scan Trivy* - ${{ github.repository }}\n*Scan:* Images Docker + Filesystem\n*Dépend de:* Test_Unitaire ✅"
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Install dependencies for Trivy
+        run: sudo apt-get update && sudo apt-get install -y curl
+        
+      - name: Download and install Trivy
+        run: |
+          curl -sSL https://github.com/aquasecurity/trivy/releases/download/v0.29.0/trivy_0.29.0_Linux-64bit.tar.gz -o trivy.tar.gz
+          tar xzvf trivy.tar.gz
+          sudo mv trivy /usr/local/bin/
+          trivy --version
+          
+      - name: Run Trivy Docker image vulnerability scan
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }} .
+          trivy image ${{ env.IMAGE_NAME }}
+
+      - name: Run Trivy filesystem vulnerability scan
+        run: trivy fs .    
+
+      - name: Notification Slack - Fin du job
+        if: always()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: |
+              ${{ job.status == 'success' && '✅ *Scan Trivy terminé*' || '❌ *Scan Trivy échoué*' }}
+              *Statut:* ${{ job.status }}
+              *Type de scan:* Docker Image + Filesystem
+              *Image scannée:* ${{ env.IMAGE_NAME }}
+              ${{ job.status == 'failure' && '*Recommandation:* Vérifiez les vulnérabilités critiques' || '' }}
+
+
+  # Vulnerability Scanning (Snyk)
+  snyk-code-security-scan-job:
+    runs-on: ubuntu-latest
+    needs : [Test_Unitaire]
+    
+    steps:
+      - name: Notification Slack - Début du job
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🔵 *Début scan Snyk* - ${{ github.repository }}\n*Organisation:* ademze\n*Dépend de:* Test_Unitaire ✅"
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Dependency Scanning Tool (Snyk)
+        run: npm install -g snyk
+
+      - name: Run Snyk Vulnerability Scan
+        run: snyk monitor --all-projects --org=ademze
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  
+      - name: Notification Slack - Fin du job
+        if: always()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: |
+              ${{ job.status == 'success' && '✅ *Scan Snyk terminé*' || '❌ *Scan Snyk échoué*' }}
+              *Statut:* ${{ job.status }}
+              *Organisation:* ademze
+              *Projets scannés:* Tous les projets
+              *Dashboard:* https://app.snyk.io/org/ademze
+
+
+  #build and push image 
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [Test_Unitaire, sonarqube-code-quality-scan-job, snyk-code-security-scan-job]
+    
+    steps: 
+      - name: Notification Slack - Début du job
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🔵 *Début build & push Docker* - ${{ github.repository }}\n*Dépendances:* Test ✅ SonarQube ✅ Snyk ✅\n*Image:* ${{ env.IMAGE_NAME }}:${{ env.BUILD_NUMBER }}"
+
+      - name: clone code 
+        uses: actions/checkout@v5
+        
+      - name: build docker image
+        run: docker build -t adeem07/api-session14 .
+
+      # docker tag image
+      - name: tag image 
+        run: docker tag adeem07/api-session14 adeem07/api-session14:${{ github.run_number }}
+        
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          
+      - name: list image 
+        run: docker images  
+          
+      - name: push docker image
+        run: docker push adeem07/api-session14:${{ github.run_number }}
+
+      - name: Notification Slack - Fin du job
+        if: always()
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: |
+              ${{ job.status == 'success' && '✅ *Build & Push réussi*' || '❌ *Build & Push échoué*' }}
+              *Statut:* ${{ job.status }}
+              *Image:* ${{ env.IMAGE_NAME }}:${{ env.BUILD_NUMBER }}
+              *Tag:* ${{ env.BUILD_NUMBER }}
+              *Registry:* Docker Hub
+              *Lien Docker Hub:* https://hub.docker.com/r/${{ env.IMAGE_NAME }}
+
+
+  # Rapport Final - Job qui s'exécute après tous les autres jobs
+  Rapport_Final:
+    runs-on: ubuntu-latest
+    needs: [Test_Unitaire, sonarqube-code-quality-scan-job, trivy-image-security-scan-job, snyk-code-security-scan-job, build-and-push]
+    if: always()  # S'exécute toujours même si un job précédent échoue
+    
+    steps:
+      - name: Génération du rapport final
+        id: generate-report
+        run: |
+          # Calcul du statut global
+          if [[ "${{ needs.Test_Unitaire.result }}" == "success" ]] && \
+             [[ "${{ needs.sonarqube-code-quality-scan-job.result }}" == "success" ]] && \
+             [[ "${{ needs.trivy-image-security-scan-job.result }}" == "success" ]] && \
+             [[ "${{ needs.snyk-code-security-scan-job.result }}" == "success" ]] && \
+             [[ "${{ needs.build-and-push.result }}" == "success" ]]; then
+            echo "STATUS_GLOBAL=success" >> $GITHUB_ENV
+            echo "EMOJI=🎉" >> $GITHUB_ENV
+            echo "TITRE=*🚀 PIPELINE RÉUSSIE*" >> $GITHUB_ENV
+          else
+            echo "STATUS_GLOBAL=failure" >> $GITHUB_ENV
+            echo "EMOJI=⚠️" >> $GITHUB_ENV
+            echo "TITRE=*❌ PIPELINE EN ÉCHEC*" >> $GITHUB_ENV
+          fi
+          
+          # Préparation des statistiques
+          echo "REPO=${{ github.repository }}" >> $GITHUB_ENV
+          echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "COMMIT=${{ github.sha }}" >> $GITHUB_ENV
+          echo "AUTHOR=${{ github.actor }}" >> $GITHUB_ENV
+          echo "RUN_URL=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${{ env.BUILD_NUMBER }}" >> $GITHUB_ENV
+
+      - name: Notification Slack - Rapport Final
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            blocks:
+              - type: header
+                text:
+                  type: plain_text
+                  text: "${{ env.EMOJI }} Rapport Final - CI/CD Pipeline"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "${{ env.TITRE }}\n*Repository:* ${{ env.REPO }}\n*Branche:* ${{ env.BRANCH }}\n*Build:* #${{ env.BUILD_NUMBER }}\n*Auteur:* ${{ env.AUTHOR }}"
+              - type: divider
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: |
+                    *📊 Statut des Jobs:*
+                    • Tests Unitaires: ${{ needs.Test_Unitaire.result == 'success' && '✅' || '❌' }} ${{ needs.Test_Unitaire.result }}
+                    • SonarQube: ${{ needs.sonarqube-code-quality-scan-job.result == 'success' && '✅' || '❌' }} ${{ needs.sonarqube-code-quality-scan-job.result }}
+                    • Trivy Security: ${{ needs.trivy-image-security-scan-job.result == 'success' && '✅' || '❌' }} ${{ needs.trivy-image-security-scan-job.result }}
+                    • Snyk Security: ${{ needs.snyk-code-security-scan-job.result == 'success' && '✅' || '❌' }} ${{ needs.snyk-code-security-scan-job.result }}
+                    • Build & Push: ${{ needs.build-and-push.result == 'success' && '✅' || '❌' }} ${{ needs.build-and-push.result }}
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: |
+                    *📦 Artifacts Générés:*
+                    • Image Docker: `${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}`
+                    • Tag: `${{ env.IMAGE_TAG }}`
+              - type: actions
+                elements:
+                  - type: button
+                    text:
+                      type: plain_text
+                      text: "📋 Voir les détails"
+                    url: "${{ env.RUN_URL }}"
+                    style: "${{ env.STATUS_GLOBAL == 'success' && 'primary' || 'danger' }}"
+                  - type: button
+                    text:
+                      type: plain_text
+                      text: "🐳 Docker Hub"
+                    url: "https://hub.docker.com/r/${{ env.IMAGE_NAME }}"
+              - type: context
+                elements:
+                  - type: mrkdwn
+                    text: "🕒 Exécution terminée à: $(date -u '+%H:%M UTC') | Workflow ID: ${{ github.run_id }}"
+
+
+  #deploy to vps (commenté - non modifié)
+  #Deployment_VPS:
+  #  runs-on: ubuntu-latest
+  #  needs: build-and-push
+  #  steps:
+  #    - name: Execute remote SSH commands using password 
+  #      uses: appleboy/ssh-action@v1
+  #      with:
+  #        host: ${{ secrets.HOST }}
+  #        username: ${{ secrets.USER }} 
+  #        password: ${{ secrets.PASSWORD }}
+  #        port: ${{ secrets.PORT }}   # default port 22  
+  #        #docker compose up -d --build                  
+  #        script: |
+  #          cd  ${{ env.PROJECT_PATH }}
+  #          sudo docker compose pull ${{ env.DOCKER_SERVICE }}
+  #          sudo docker compose down ${{ env.DOCKER_SERVICE }}
+  #          sudo docker compose up -d 
+  #          sudo docker compose ps     
