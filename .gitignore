@@ -16,3 +16,9 @@ package.json.bak
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log* 
+
+
+
+
+#pipline ci/cd ignore
+.github/workflows/piplineCICD.yml
